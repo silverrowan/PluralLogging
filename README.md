@@ -1,2 +1,9 @@
 # PluralLogging
-system member front time logging app, written with AI assistance.
+
+This application allows a system to track which members are active ("fronting"), when they become active, and when they stop being active. 
+
+The MVP is designed for use by a single system on a single device with no user accounts, passwords, cloud synchronization, or network connectivity.
+
+The data model is designed to support future expansion.
+
+Written with AI coding assistance.
