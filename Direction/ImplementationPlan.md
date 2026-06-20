@@ -58,8 +58,7 @@ Install dependencies:
 
 ### Step 2 — Database Layer
 - **`db/database.ts`**: Open DB, run CREATE TABLE for `members` and `sessions`.
-  - Seed a default "Unknown" member (name as the string "unknown" grey color #9E9E9E) on first launch.
-  - Secret member ID: treated as any other member, hidden from UI until user adds their own members.
+  - Seed Unknown member (memberId = -1) on first launch; tracked as special case: for unknown/disputed fronting, unlike other members permits multiple concurrent active sessions (warning shown).
 - **`db/memberQueries.ts`**:
   - `getAll()` — all non-archived members (includes secret Unknown with proper ID handling)
   - `insert(name, color)` — inserts new member and returns new member row including unique ID for Unknown type
@@ -71,7 +70,8 @@ Install dependencies:
   - `endSession(sessionId, endTime)` — set endTimeUtc to timestamp (only for completed sessions)
   - `getHistory(startDate, endDate)` — past sessions in range WHERE endTimeUtc IS NOT NULL
   - `updateSession(sessionId, fields)` — edit member/start/end; validates only if endTime set
-  - `endAllActiveSessions(endTime)` — set endTimeUtc to timestamp for all active sessions
+  - `editHistorySession()` — validate edit (Unknown member excluded): check new times don't overlap ALL existing sessions for same memberId (ended and active both checked); cannot end member(s)' active sessions without explicit consent.
+  - `endAllActiveSessions(endTime)` — Called by Remove All UI; set endTimeUtc to timestamp for all active sessions (including all unknown member sessions)
 
 ### Step 3 — Types + Context
 - **`types/index.ts`**: `Member`, `Session`, `ActiveMember` (Session + Member joined)
@@ -85,6 +85,8 @@ Install dependencies:
   - Empty state: "No one is fronting" when no active sessions
   - List of `ActiveMemberCard` components:
     - Color swatch, member name, ✕ checkout button
+    - Show "Unknown" as separate ActiveMemberCard per each overlapping active session (multiple cards with same gray dot/name, start times listed individually)
+      - Each Unknown card's ✕ button ends only that specific session; multiple active Unknown sessions appear one at a time until all checked out via individual or Remove All actions
   - Bottom area:
     - Prominent "Check In" button (enables multiple members to front simultaneously)
     - "Remove All" button only (no "Add All"; add members individually via Check-In sheet)
@@ -132,40 +134,41 @@ Install dependencies:
     - Unaccounted time (gaps with no activity)
     - Total session hours
   - Optional: breakdown by member
+  - when a selected period has zero matching sessions - exact text should be: "no fronting sessions matching these filters are recorded"
 
 ### Step 10 — Polish & Edge Cases
 - First launch: if no members exist (beyond Unknown), show EmptyState with "Add your first member" CTA
-- Double check-in prevention: only non-fronting members shown in check-in sheet
+- Double check-in prevention: only "unknown" member and non-fronting members shown in check-in sheet
 - Check-out without check-in: create session record with both start/end time set to checkout timestamp (zero-duration entry)
+- check-in list filtering handles check-in when already checked-in problem.
 - UTC storage, local time display
-- Handle database errors with Paper Snackbar
+- Single-device usage eliminates race conditions, transaction isolation; no network error handling needed
+- Handle database errors manually with option in Paper Snackbar; 
+- report tab shows empty state "no fronting sessions matching these filters are recorded" when zero matches found per selected period
 
 *Note: Data export deferred to Post-MVP phase (see Future Features). Database layer already export-ready.*
 
-## Future Features (Post-MVP — Highest Priority Next Phase)
-
-- add datetime checks to relevant columns.
-- change tap to edit to tap to view. edit button on viewpage.
-- Setting or Toggle: "Show Unknown in member list" (controls visibility of the Unknown member)
-- add 'show in check-in' IN ADDITION TO active/archive status
+## Future Features 
 
 ### Data Export & Backup [PRIORITY: HIGHEST]
 - SQLite offline backup/restore using File Access API  
 - JSON export for cross-device sync foundation
 - **Rationale:** MVP database is already export-ready. Implementation deferred now to focus on core tracking flows, but architecture supports full export capability without refactoring.
 
-
-
+### (Post-MVP — Highest Priority Next Phase)
+- add format check to datetime columns.
+- change tap to edit member to tap to view member details. edit button on viewpage.
+- add Member Setting or Toggle: 'show in check-in' IN ADDITION TO active/archive status
+- add option to hide 'unknown' fronter from ui
+- add option to set "priority" fronters, hide other fronters behind a "more members" option in memeber list.
 
 ## Key Design Decisions
 
 | Decision | MVP Choice |
 |----------|------------|
-| Unknown member | Real DB member with unique UID, seeded on launch. Grey (#9E9E9E), always available in check-in. Hidden from UI until user adds own members. |
 | Color picker | 30+ preset swatches in a scrollable grid |
-| Check-out confirmation on group actions only | Individual = instant. Remove All = confirmation dialog. Multi-select checkout deferred (multi-member fronting supported). |
+| Check-out confirmation on group actions only | Unknown session allows overlapping own sessions; ends with Remove All action (clean slate for next check-in); individual cards checked out one-at-a-time too for unknown multi-session fronting. Multi-select checkout deferred. |
 | Undo | Deferred (not MVP) |
-| Multi-select checkout | Deferred (not MVP) |
 | Session editing | Tap past session → edit member/start/end with validation |
 | First launch | Empty state with CTA to add first member |
 | Time precision | Minute precision, UTC storage, local display |
@@ -175,11 +178,11 @@ Data export | Deferred — highest priority Post-MVP |
 
 ```sql
 CREATE TABLE IF NOT EXISTS members (
-  memberId INT AUTOINCREMENT PRIMARY KEY,  
-  name TEXT NOT NULL,  
+  memberId INT AUTOINCREMENT PRIMARY KEY,  -- Unknown member uses reserved memberId = -1; seeded once on launch, never auto-archived
+  name TEXT NOT NULL,
   color TEXT NOT NULL,  -- Unknown is grey (#9E9E9E); users pick from 30+ swatches for other members
 
-  -- Store as ISO-8601 UTC (e.g., "2025-06-19T14:30:00Z")
+  -- Store times as ISO-8601 UTC (e.g., "2025-06-19T14:30:00Z")
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   archivedAt TEXT
@@ -187,21 +190,21 @@ CREATE TABLE IF NOT EXISTS members (
 
 CREATE TABLE IF NOT EXISTS sessions (
   sessionId INT AUTOINCREMENT PRIMARY KEY, -- hidden from user, used by database to ensure unique sessions
-  memberId TEXT NOT NULL REFERENCES members(id),  -- secret "uid_unknown" handled in DB layer
-
-  -- Store as ISO-8601 UTC (e.g., "2025-06-19T14:30:00Z")
+  memberId INT NOT NULL REFERENCES members(memberId),
+  -- Store times as ISO-8601 UTC (e.g., "2025-06-19T14:30:00Z")
   startTimeUtc TEXT NOT NULL,
   endTimeUtc TEXT, -- NULL = active/fronting; ISO timestamp = completed session
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   archivedAt TEXT,
-  FOREIGN KEY (memberId) REFERENCES members(id),
+  FOREIGN KEY (memberId) REFERENCES members(memberId),
   CHECK(endTimeUtc IS NULL OR endTimeUtc > startTime)  -- ensure valid duration
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_memberId ON sessions(memberId);
-CREATE INDEX IF NOT EXISTS idx_sessions_active 
-    ON sessions(endTimeUtc) WHERE endTimeUtc IS NULL; 
+-- note active sessions intentionally not indexed, assume < 50 active sessions at any one point
+CREATE INDEX IF NOT EXISTS idx_sessions_ended ON sessions(endTimeUtc) 
+  WHERE endTimeUtc IS NOT NULL;
 ```
 
 ## Color Swatches (30+)
