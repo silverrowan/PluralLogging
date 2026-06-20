@@ -79,6 +79,10 @@ Install dependencies:
 - Wrap `_layout.tsx` with the provider
 
 ### Step 4 — Home Screen (Active Dashboard)
+- **`loading behaviour`**:
+  - Screen shows "fetching active members" EmptyState while initial getActiveMembers() query runs (~100ms).
+  - Individual session cards are shown when query completes, not before.
+  - Bottom Check In button shows Loading Spinner until member fetch completes.
 - **`app/index.tsx`**:
   - Header buttons: [Members] [History] [Reports]
   - Title: "Currently Fronting"
@@ -116,6 +120,8 @@ Install dependencies:
   - Save button (disabled until name filled)
 
 ### Step 8 — Session History
+- **`loading behaviour`**:
+  - state "fetching recent sessions" displays during query (~10-50ms).
 - **`app/history/index.tsx`**:
   - List of past sessions grouped by date
     - Default: sort order by: start time, then end time. Most recent first.
@@ -125,8 +131,13 @@ Install dependencies:
     - Change member, start time, end time
     - Validation: end > start, no overlapping sessions for same member
   - Search/filter by member name
+    - empty search results shows: "no fronting sessions matching these filters are recorded"
 
 ### Step 9 — Reports
+- **`loading behaviour`**:
+  - state "fetching sessions" displays during query.
+  - Period selector change triggers new aggregation query (~50ms).
+  - Stats cards show skeleton blocks until results computed.
 - **`app/reports/index.tsx`**:
   - Period selector: Today | This Week | This Month
   - Stats cards:
@@ -134,7 +145,7 @@ Install dependencies:
     - Unaccounted time (gaps with no activity)
     - Total session hours
   - Optional: breakdown by member
-  - when a selected period has zero matching sessions - exact text should be: "no fronting sessions matching these filters are recorded"
+  - Empty state "no fronting sessions matching these filters are recorded" for zero-match queries.
 
 ### Step 10 — Polish & Edge Cases
 - First launch: if no members exist (beyond Unknown), show EmptyState with "Add your first member" CTA
@@ -144,7 +155,7 @@ Install dependencies:
 - UTC storage, local time display
 - Single-device usage eliminates race conditions, transaction isolation; no network error handling needed
 - Handle database errors manually with option in Paper Snackbar; 
-- report tab shows empty state "no fronting sessions matching these filters are recorded" when zero matches found per selected period
+- report tab shows empty state "no fronting sessions matching these filters are recorded" when zero maopentches found per selected period
 
 *Note: Data export deferred to Post-MVP phase (see Future Features). Database layer already export-ready.*
 
