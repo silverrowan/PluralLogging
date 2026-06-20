@@ -149,6 +149,7 @@ Install dependencies:
 | Color picker | 30+ preset swatches in a scrollable grid |
 | Check-out confirmation on group actions only | Individual = instant. Remove All = confirmation dialog. Multi-select checkout deferred (multi-member fronting supported). |
 | Undo | Deferred (not MVP) |
+| Multi-select checkout | Deferred (not MVP) |
 | Session editing | Tap past session → edit member/start/end with validation |
 | First launch | Empty state with CTA to add first member |
 | Time precision | Minute precision, UTC storage, local display |
@@ -157,8 +158,8 @@ Install dependencies:
 
 ```sql
 CREATE TABLE IF NOT EXISTS members (
-  id TEXT PRIMARY KEY,  -- Unknown gets seeded ID "uid_unknown"; all others get auto-generated UUIDs
-  name TEXT,  -- Unknown has NULL name; all other members have names (required when editing)
+  memeberId INT AUTOINCREMENT PRIMARY KEY,  
+  name TEXT NOT NULL,  
   color TEXT NOT NULL,  -- Unknown is grey (#9E9E9E); users pick from 30+ swatches for other members
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
@@ -166,7 +167,7 @@ CREATE TABLE IF NOT EXISTS members (
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
-  id TEXT PRIMARY KEY,
+  sessionId INT AUTOINCREMENT PRIMARY KEY, -- hidden from user, used by database to ensure unique sessions
   memberId TEXT NOT NULL REFERENCES members(id),  -- secret "uid_unknown" handled in DB layer
   startTimeUtc TEXT NOT NULL,
   endTimeUtc TEXT, -- NULL = active/fronting; ISO timestamp = completed session
@@ -177,8 +178,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_memberId ON sessions(memberId);
--- Note: No partial index on endTimeUtc (SQLite doesn't support WHERE clauses in CREATE INDEX).
--- Query handles active filter with "WHERE endTimeUtc IS NULL" at query execution time.
+CREATE INDEX IF NOT EXISTS idx_sessions_active ON sessions(endTimeUtc)
+WHERE endTimeUtc IS NULL;
 ```
 
 ## Color Swatches (30+)
