@@ -127,11 +127,12 @@ Install dependencies:
     - Default: sort order by: start time, then end time. Most recent first.
     - Default: limit to sessions with end times within the last 72 hrs
   - Each row: member name, color, start-end times, duration
-  - Tap to open edit view:
+  - Tap session to open edit view:
     - Change member, start time, end time
     - Validation: end > start, no overlapping sessions for same member
   - Search/filter by member name
     - empty search results shows: "no fronting sessions matching these filters are recorded"
+  - Add new session button
 
 ### Step 9 — Reports
 - **`loading behaviour`**:
@@ -139,13 +140,21 @@ Install dependencies:
   - Period selector change triggers new aggregation query (~50ms).
   - Stats cards show skeleton blocks until results computed.
 - **`app/reports/index.tsx`**:
-  - Period selector: Today | This Week | This Month
+  - Period selector: Today | This Week | This Month 
   - Stats cards:
     - Coverage time (total time with at least one member active)
     - Unaccounted time (gaps with no activity)
     - Total session hours
   - Optional: breakdown by member
+    - Total session hours
+    - Total session hours shared with other member(s)
+    - Longest session
+    - Average session length
   - Empty state "no fronting sessions matching these filters are recorded" for zero-match queries.
+  - Note for report calculations and display:
+    - sessions that cross midnight (day change) are stored as a single record, but are handled differently for reports.
+      - Longest session and Average session length use the full length of the sessions for calculations, and are included if their endTimeUTC is within the reporting period
+      - all totals and coverage calculations cut off session times that fall outside their range. Sessions are included if EITHER OF (or both) startTimeUTC and endTimeUTC are within the reporting period. 
 
 ### Step 10 — Polish & Edge Cases
 - First launch: if no members exist (beyond Unknown), show EmptyState with "Add your first member" CTA
@@ -157,21 +166,7 @@ Install dependencies:
 - Users may edit session data through an option in Paper Snackbar; 
 - report tab shows empty state "no recorded fronting sessions match these filters" when zero open matches are found per selected period + other filters
 
-*Note: Data export deferred to Post-MVP phase (see Future Features). Database layer already export-ready.*
-
-## Future Features 
-
-### Data Export & Backup [PRIORITY: HIGHEST]
-- SQLite offline backup/restore using File Access API  
-- JSON export for cross-device sync foundation
-- **Rationale:** MVP database is already export-ready. Implementation deferred now to focus on core tracking flows, but architecture supports full export capability without refactoring.
-
-### (Post-MVP — High Priority Next Phase)
-- add check to datetime columns to enforce correct time format.
-- change tap to edit member to tap to view member details. edit button on viewpage.
-- add Member Setting or Toggle: 'show in check-in' IN ADDITION TO active/archive status
-- add option to hide 'unknown' fronter from ui
-- add option to set "priority" fronters, hide other fronters behind a "more members" option in memeber list.
+*Note: Data export deferred to Post-MVP phase (see Future Features). Database layer already export-ready.*structure
 
 ## Key Design Decisions
 
@@ -188,6 +183,26 @@ Install dependencies:
 | Remove-all Action | First confirms intent to end all active sessions with user. If confirmed then sets endTime to current time for all active sessions, including all unknown member (member id = -1) sessions, else does nothing |
 | Add All or Multiple Action | DEFFERED Multi-select check-in, and add all check-in deferred. |
 | Session editing | In session history: Tap past session → edit member/start/end with validation |
+
+## Future Features (High priority, considered in design) 
+
+### Data Export & Backup [PRIORITY: HIGHEST]
+- SQLite offline backup/restore using File Access API  
+- JSON export for cross-device sync foundation
+- **Rationale:** MVP database is already export-ready. Implementation deferred now to focus on core tracking flows, but architecture supports full export capability without refactoring.
+
+### (Post-MVP — High Priority Next Phases)
+- add check to datetime columns to enforce correct time format.
+- change tap to edit member to tap to view member details. edit button on viewpage.
+- add Member Setting or Toggle: 'show in check-in' IN ADDITION TO active/archive status
+- add option to hide 'unknown' fronter from ui
+- add option to set "priority" fronters, hide other fronters behind a "more members" option in memeber list.
+- Home screen widget(s) with current fronters, Quick check-in/check-out
+- User customization: ability to add fields and/or tags for users and/or sessions, eg. 'roles' 'mood' 'state' etc.
+- Allow user to specify specific days and periods for history & reporting
+- Allow user to change day roll-over time (for those with different sleep schedules)
+- Audit log
+- expanded member profile, including images
 
 ## Database Schema
 ```sql
