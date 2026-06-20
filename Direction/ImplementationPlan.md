@@ -58,7 +58,7 @@ Install dependencies:
 
 ### Step 2 — Database Layer
 - **`db/database.ts`**: Open DB, run CREATE TABLE for `members` and `sessions`.
-  - Seed a default "Unknown" member (UID: "uid_unknown", grey color #9E9E9E) on first launch.
+  - Seed a default "Unknown" member (name as the string "unknown" grey color #9E9E9E) on first launch.
   - Secret member ID: treated as any other member, hidden from UI until user adds their own members.
 - **`db/memberQueries.ts`**:
   - `getAll()` — all non-archived members (includes secret Unknown with proper ID handling)
@@ -68,11 +68,10 @@ Install dependencies:
 - **`db/sessionQueries.ts`**:
   - `getActiveMembers()` — returns non-archived members who are NOT currently fronting (joined table filtered by NULL endTimeUtc)
   - `startSession(memberId, startTime)` — inserts session with NULL endTimeUtc for active/fronting state
-  - `startSession(memberId, startTime)` — insert session with NULL endTime
   - `endSession(sessionId, endTime)` — set endTimeUtc to timestamp (only for completed sessions)
   - `getHistory(startDate, endDate)` — past sessions in range WHERE endTimeUtc IS NOT NULL
   - `updateSession(sessionId, fields)` — edit member/start/end; validates only if endTime set
-  - `endAllActiveSessions(endTime)` — set endTimeUtc=NULL for all active sessions
+  - `endAllActiveSessions(endTime)` — set endTimeUtc to timestamp for all active sessions
 
 ### Step 3 — Types + Context
 - **`types/index.ts`**: `Member`, `Session`, `ActiveMember` (Session + Member joined)
@@ -112,12 +111,13 @@ Install dependencies:
 - **`MemberFormDialog.tsx`**:
   - TextInput for name (required, 1-200 chars)
   - 30+ preset color swatches in a scrollable grid
-  - Toggle: "Show Unknown in member list" (controls visibility of the Unknown member)
   - Save button (disabled until name filled)
 
 ### Step 8 — Session History
 - **`app/history/index.tsx`**:
   - List of past sessions grouped by date
+    - Default: sort order by: start time, then end time. Most recent first.
+    - Default: limit to sessions with end times within the last 72 hrs
   - Each row: member name, color, start-end times, duration
   - Tap to open edit view:
     - Change member, start time, end time
@@ -139,12 +139,28 @@ Install dependencies:
 - Check-out without check-in: create session record with both start/end time set to checkout timestamp (zero-duration entry)
 - UTC storage, local time display
 - Handle database errors with Paper Snackbar
-- Data export strategy: implement offline SQLite file export/import AND online JSON sync for future cross-device support
+
+*Note: Data export deferred to Post-MVP phase (see Future Features). Database layer already export-ready.*
+
+## Future Features (Post-MVP — Highest Priority Next Phase)
+
+- add datetime checks to relevant columns.
+- change tap to edit to tap to view. edit button on viewpage.
+- Setting or Toggle: "Show Unknown in member list" (controls visibility of the Unknown member)
+- add 'show in check-in' IN ADDITION TO active/archive status
+
+### Data Export & Backup [PRIORITY: HIGHEST]
+- SQLite offline backup/restore using File Access API  
+- JSON export for cross-device sync foundation
+- **Rationale:** MVP database is already export-ready. Implementation deferred now to focus on core tracking flows, but architecture supports full export capability without refactoring.
+
+
+
 
 ## Key Design Decisions
 
 | Decision | MVP Choice |
-|----------|-----------|
+|----------|------------|
 | Unknown member | Real DB member with unique UID, seeded on launch. Grey (#9E9E9E), always available in check-in. Hidden from UI until user adds own members. |
 | Color picker | 30+ preset swatches in a scrollable grid |
 | Check-out confirmation on group actions only | Individual = instant. Remove All = confirmation dialog. Multi-select checkout deferred (multi-member fronting supported). |
@@ -153,14 +169,17 @@ Install dependencies:
 | Session editing | Tap past session → edit member/start/end with validation |
 | First launch | Empty state with CTA to add first member |
 | Time precision | Minute precision, UTC storage, local display |
+Data export | Deferred — highest priority Post-MVP |
 
 ## Database Schema
 
 ```sql
 CREATE TABLE IF NOT EXISTS members (
-  memeberId INT AUTOINCREMENT PRIMARY KEY,  
+  memberId INT AUTOINCREMENT PRIMARY KEY,  
   name TEXT NOT NULL,  
   color TEXT NOT NULL,  -- Unknown is grey (#9E9E9E); users pick from 30+ swatches for other members
+
+  -- Store as ISO-8601 UTC (e.g., "2025-06-19T14:30:00Z")
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   archivedAt TEXT
@@ -169,17 +188,20 @@ CREATE TABLE IF NOT EXISTS members (
 CREATE TABLE IF NOT EXISTS sessions (
   sessionId INT AUTOINCREMENT PRIMARY KEY, -- hidden from user, used by database to ensure unique sessions
   memberId TEXT NOT NULL REFERENCES members(id),  -- secret "uid_unknown" handled in DB layer
+
+  -- Store as ISO-8601 UTC (e.g., "2025-06-19T14:30:00Z")
   startTimeUtc TEXT NOT NULL,
   endTimeUtc TEXT, -- NULL = active/fronting; ISO timestamp = completed session
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
   archivedAt TEXT,
-  FOREIGN KEY (memberId) REFERENCES members(id)
+  FOREIGN KEY (memberId) REFERENCES members(id),
+  CHECK(endTimeUtc IS NULL OR endTimeUtc > startTime)  -- ensure valid duration
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_memberId ON sessions(memberId);
-CREATE INDEX IF NOT EXISTS idx_sessions_active ON sessions(endTimeUtc)
-WHERE endTimeUtc IS NULL;
+CREATE INDEX IF NOT EXISTS idx_sessions_active 
+    ON sessions(endTimeUtc) WHERE endTimeUtc IS NULL; 
 ```
 
 ## Color Swatches (30+)
