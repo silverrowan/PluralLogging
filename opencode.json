@@ -2,7 +2,6 @@
   "$schema": "https://opencode.ai/config.json",
   "provider": {
     "lmstudio2": {
-      "name": "LmStudio2",      
       "npm": "@ai-sdk/openai-compatible",
       "options": {
         "baseURL": "http://localhost:1234/v1",
@@ -10,9 +9,10 @@
       },
       "models": {
         "qwen/qwen3.5-9b": {
-          "name": "Qwen3.5",
-          "modalities": { "input": ["text", "image"], "output": ["text"] },
-          "systemPrompt": "Keep responses to the point. One step at a time."
+          "name": "Qwen3.5"
+        },
+        "qwen/qwen2.5-coder-14b": {
+          "name": "Qwen2.5 Coder"
         }
       }
     }

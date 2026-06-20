@@ -1,4 +1,4 @@
-# PluralLogging
+# FrontingTracker
 
 This application allows a system to track which members are active ("fronting"), when they become active, and when they stop being active. 
 
