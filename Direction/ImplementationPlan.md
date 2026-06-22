@@ -166,8 +166,8 @@ Install dependencies:
   - a day is defined as midnight to midnight in the local user's time. 
     - that means today will not be calculated from a full 24hrs
   - Stats cards:
-    - Coverage time (total time minus time where no sessions are active)
-    - Unaccounted time (total time no sessions are active)
+    - Coverage time (total time minus time where no sessions are ongoing or completed)
+    - Unaccounted time (total time no sessions are or completed)
     - Total session hours
   - Optional: breakdown by member
     - Total session hours
