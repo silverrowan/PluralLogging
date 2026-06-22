@@ -43,7 +43,15 @@ FrontingTracker/
 └── utils/
     └── time.ts               # UTC helpers, formatting
 ```
+## Object States
+### Members
+Members may be "active" (archivedAt = Null) or "archived" (archivedAt = a datetime)
+-- DEFERRED Members may be "fronting" or "non-fronting" members
 
+### Sessions
+Sessions may be "ongoing" (endTimeUTC = null) or "completed" (endTimeUTC = a set time)
+Sessions may be "active" (archivedAt = null) or "archived" (archivedAt = a datetime)
+---
 ## Build Order
 
 ### Step 1 — Project Init
