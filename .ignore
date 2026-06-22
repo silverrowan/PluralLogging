@@ -1,0 +1,4 @@
+-- files for the ai to ignore, that should still be synced with git
+./Direction/aiIgnore/*
+./aiIgnore/*
+README.md
