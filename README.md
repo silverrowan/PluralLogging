@@ -7,3 +7,6 @@ The MVP is designed for use by a single system on a single (Android) device with
 The data model is designed to support future expansion.
 
 Written with AI coding assistance.
+
+---
+Not currently functional.
